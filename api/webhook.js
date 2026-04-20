@@ -11,8 +11,9 @@ const USERNAME = 'pc5141us';
 const PASSWORD = 'Hm@600100';
 
 module.exports = async (req, res) => {
-    res.status(200).send('OK');
-    if (req.method !== 'POST' || !req.body.message) return;
+    if (req.method !== 'POST' || !req.body.message) {
+        return res.status(200).send('OK');
+    }
 
     const message = req.body.message;
     const chatId = message.chat.id;
@@ -77,4 +78,6 @@ module.exports = async (req, res) => {
         const errorDetail = error.response?.data?.includes('كلمة المرور') ? 'بيانات الدخول غير صحيحة' : error.message;
         await bot.sendMessage(chatId, `❌ خطأ: ${errorDetail}\n(قد يكون الملف كبيراً أو الموقع بطيئاً)`);
     }
+
+    return res.status(200).send('OK');
 };
