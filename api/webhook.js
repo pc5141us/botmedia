@@ -65,12 +65,36 @@ module.exports = async (req, res) => {
         });
 
         const $ = cheerio.load(uploadRes.data);
-        const link = $('.input-group input, .input-group textarea').first().val();
+        const boxes = $('.all_boxes');
+        let link = '';
+
+        if (boxes.length > 0) {
+            // Logic to pick the best link:
+            // For images: direct link is usually boxes[2]
+            // For others: page link is usually boxes[0]
+            if (boxes.length >= 3 && boxes.eq(2).val().match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+                link = boxes.eq(2).val(); // Direct Image Link
+            } else {
+                link = boxes.first().val(); // General File Link
+            }
+        }
 
         if (link) {
-            await bot.editMessageText(`✅ تم الرفع بنجاح:\n${link.replace('http://', 'https://')}`, { chat_id: chatId, message_id: statusMsg.message_id });
+            await bot.editMessageText(`✅ تم الرفع بنجاح إلى حسابك (${USERNAME}):\n${link.replace('http://', 'https://')}`, { 
+                chat_id: chatId, 
+                message_id: statusMsg.message_id 
+            });
         } else {
-            throw new Error('لم يتم العثور على رابط في الصفحة.');
+            // Keep original fallback just in case or for guest uploads
+            const fallbackLink = $('.input-group input, .input-group textarea').first().val();
+            if (fallbackLink) {
+                 await bot.editMessageText(`✅ تم الرفع بنجاح:\n${fallbackLink.replace('http://', 'https://')}`, { 
+                    chat_id: chatId, 
+                    message_id: statusMsg.message_id 
+                });
+            } else {
+                throw new Error('لم يتم العثور على رابط. قد يكون الموقع غير واجهته أو حدث خطأ في الرفع.');
+            }
         }
 
     } catch (error) {
