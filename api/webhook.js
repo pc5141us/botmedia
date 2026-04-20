@@ -7,15 +7,16 @@ const path = require('path');
 const token = '8668181525:AAEOYjCwqw-khnwcCiOPGAX3PZbauu1DBv4';
 const bot = new TelegramBot(token);
 
-export default async (req, res) => {
+module.exports = async (req, res) => {
     if (req.method !== 'POST') {
         return res.status(200).send('Bot is running');
     }
 
+    // Immediately respond to Telegram to prevent timeout retries
+    res.status(200).send('OK');
+
     const { message } = req.body;
-    if (!message) {
-        return res.status(200).send('OK');
-    }
+    if (!message) return;
 
     const chatId = message.chat.id;
 
@@ -28,7 +29,7 @@ export default async (req, res) => {
         if (message.text === '/start') {
             await bot.sendMessage(chatId, 'أرسل لي صورة أو ملف وسأقوم برفعه إلى top4top.io');
         }
-        return res.status(200).send('OK');
+        return;
     }
 
     try {
@@ -41,7 +42,8 @@ export default async (req, res) => {
         const response = await axios({
             url: fileUrl,
             method: 'GET',
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            timeout: 10000
         });
 
         const fileName = path.basename(file.file_path);
@@ -63,7 +65,7 @@ export default async (req, res) => {
                 ...form.getHeaders(),
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             },
-            timeout: 25000 // Vercel limit is usually 30s
+            timeout: 15000 
         });
 
         const $ = cheerio.load(uploadRes.data);
@@ -89,12 +91,14 @@ export default async (req, res) => {
         if (links.length > 0) {
             let responseText = '✅ *تم الرفع بنجاح!*\n\n';
             links.forEach((item) => {
-                responseText += `🔗 *${item.label}:*\n\`${item.link}\`\n\n`;
+                const secureLink = item.link.replace(/^http:\/\//i, 'https://');
+                responseText += `🔗 *${item.label}:*\n${secureLink}\n\n`;
             });
             await bot.editMessageText(responseText, {
                 chat_id: chatId,
                 message_id: statusMsg.message_id,
-                parse_mode: 'Markdown'
+                parse_mode: 'Markdown',
+                disable_web_page_preview: true
             });
         } else {
             const errorMsg = $('.alert-danger').text().trim() || 'تعذر استخراج الرابط. قد يكون نوع الملف غير مدعوم.';
@@ -106,8 +110,6 @@ export default async (req, res) => {
 
     } catch (error) {
         console.error(error);
-        await bot.sendMessage(chatId, '❌ حدث خطأ أثناء الرفع. قد يكون الملف كبيراً جداً بالنسبة لـ Vercel أو النوع غير مدعوم.');
+        await bot.sendMessage(chatId, '❌ حدث خطأ أو انتهى الوقت. Vercel يسمح بـ 10 ثوانٍ فقط للرفع، يرجى تجربة ملفات أصغر حجمًا.');
     }
-
-    return res.status(200).send('OK');
 };
