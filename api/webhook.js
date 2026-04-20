@@ -20,10 +20,18 @@ module.exports = async (req, res) => {
 
     const message = req.body.message;
     const chatId = message.chat.id;
-    const fileId = message.document?.file_id || message.photo?.[message.photo.length - 1].file_id || message.video?.file_id;
+    const file = message.document || (message.photo ? message.photo[message.photo.length - 1] : null) || message.video;
+    const fileId = file?.file_id;
+    const fileSize = file?.file_size || 0;
 
     if (!fileId) {
         if (message.text === '/start') await bot.sendMessage(chatId, 'أرسل لي ملفاً لرفعه لحسابك.');
+        return res.status(200).send('OK');
+    }
+
+    // Telegram Bot API limit for getFile is 20MB
+    if (fileSize > 20 * 1024 * 1024) {
+        await bot.sendMessage(chatId, '❌ حجم الملف كبير جداً (أكبر من 20 ميجابايت).\nللأسف، لا يمكن للبوتات العادية التعامل مع ملفات أكبر من 20 ميجابايت بسبب قيود تيليجرام.');
         return res.status(200).send('OK');
     }
 
